@@ -25,7 +25,7 @@ function App() {
         {/* TÍTULO DEL PROYECTO */}
         <div className="mt-10 mb-8 text-center animate-fade-in-down">
           <h1 className="text-6xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 drop-shadow-[0_2px_10px_rgba(234,88,12,0.5)]">
-            PROYECTO IA
+            CUY APOSTADOR
           </h1>
           
           <div className="mt-4 inline-flex items-center gap-2 bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-lg">

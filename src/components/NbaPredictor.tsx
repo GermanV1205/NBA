@@ -167,7 +167,7 @@ export function NbaPredictor() {
                   <p className="text-2xl font-bold text-blue-400">{res.line}</p>
                 </div>
                 <div className="text-center">
-                  <span className="text-xs text-slate-500 uppercase">Predicción IA</span>
+                  <span className="text-xs text-slate-500 uppercase">EL CUY APOSTADOR</span>
                   <p className="text-3xl font-black text-orange-500">{res.data.points}</p>
                 </div>
               </div>
@@ -259,7 +259,7 @@ export function NbaPredictor() {
             onClick={analyzeMatchup}
             className="bg-gradient-to-r from-blue-600 to-orange-600 hover:from-blue-500 hover:to-orange-500 text-white font-black py-4 px-12 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] transform hover:scale-105 transition-all text-xl border-4 border-slate-900"
           >
-            🔮 PREDECIR PARTIDO
+             PREDECIR PARTIDO
           </button>
         </div>
       )}
