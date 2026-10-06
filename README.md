@@ -1,239 +1,379 @@
-# ROADMAP - NBA POINTS PREDICTOR v2.0
-## Arquitectura de Machine Learning para Predicción de Puntos Partido-a-Partido
+# NBA AI Prop Bet Predictor
 
----
+Un sistema completo de **Machine Learning (MLOps)** diseñado para encontrar ventajas matemáticas (Edge) en las líneas de apuestas de la NBA (Player Props).
 
-## 1. VISIÓN GENERAL Y OBJETIVO CORE
+El sistema automatiza la extracción de estadísticas históricas, la ingeniería de características (cálculo de rachas, fatiga y matchups), y cruza las proyecciones de un modelo **XGBoost** contra las cuotas en vivo de las casas de apuestas para identificar apuestas de **Valor Esperado Positivo (EV+)**.
 
-### 1.1 Problema
-Predecir cuántos puntos anotará un jugador en su **próximo partido** (Next_Game_PTS) con precisión competitiva, eliminando completamente:
-- **Data Leakage**: No usar métricas de la temporada actual para predecir esa misma temporada
-- **Estimaciones falsas**: Usar valores reales de play-by-play, nunca aproximaciones
-- **Validación circular**: Prohibido random split en datos temporales
+## ⚠️ Disclaimer
 
-### 1.2 Solución Técnica
+Este proyecto es **estrictamente para fines educativos y de investigación** en el ámbito de la Inteligencia Artificial.
 
-Pasado: SGDRegressor lineal + promedios de temporada (R² = 0.94 falso)
-↓
-Presente: XGBoost/LightGBM + rolling averages (últimos 5 juegos) + contexto pre-juego
-↓
-Resultado: R² realista = 0.55-0.68 (validación temporal honesta)
+⛔ **No es asesoría financiera.** Los modelos predictivos no garantizan resultados. **Apuesta con responsabilidad.**
 
-### 1.3 Diferencial del Modelo
-|   Aspecto  |        Anterior          |            Nuevo             |
-|------------|--------------------------|------------------------------|
-| Target     | Promedio de temporada    | Puntos en SIGUIENTE partido  |
-| Features   | Stats de misma temporada | Rolling avg + contexto rival |
-| Modelo     | Regresión lineal         | Tree-based (XGBoost)         |
-| Leakage    | Máximo (circular)        | Cero (causalidad respetada)  |
-| Validación | Random split (inválido)  | Time-Series Split (válido)   |
+## 🏗️ Arquitectura del Sistema
 
-## 2. ARQUITECTURA DE DIRECTORIOS
+El pipeline diario se ejecuta en **cuatro fases secuenciales**:
 
-NBA_Predictor/
-│
-├── data/
-│ ├── raw/
-│ │ ├── nba_master_dataset.csv # ADN: métricas avanzadas por jugador/temporada
-│ │ └── nba_gamelogs_dataset.csv # Línea de tiempo: 80k partidos elemento a elemento
-│ │
-│ └── processed/
-│ ├── nba_features_ready.csv # Features engineered (rolling avg + contexto)
-│ ├── nba_train_set.csv # Train: 2022-2025
-│ └── nba_test_set.csv # Test: últimas 4 semanas 2026
-│
+| Fase                             | Descripción                                                           | Comando                                                                  |
+| -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **1. ETL**                       | Extracción de Gamelogs oficiales mediante `nba_api`                   | `python src/data/etl_gamelogs.py`                                        |
+| **2. Feature Engineering**       | Cálculo de promedios móviles, días de descanso y factores de contexto | `python src/features/02_feature_engineering.py`                          |
+| **3. Context Features**          | Integración de factores contextuales (home/away, rest days, etc.)     | `python src/features/03_context_features.py`                             |
+| **4. Odds Fetching & Inference** | Conexión a The Odds API y generación de proyecciones                  | `python src/data/04_fetch_odds.py` + `python src/models/06_inference.py` |
+
+**Output final:** Archivo `.csv` con picks ordenados por Edge matemático.
+
+## ⚙️ Requisitos Previos
+
+## 🚀 Instalación y Configuración
+
+### 1️⃣ Clonar el repositorio
+
+```bash
+git clone https://github.com/TU_USUARIO/nba-ai-predictor.git
+cd nba-ai-predictor
+```
+
+### 2️⃣ Crear y activar el entorno virtual
+
+⚠️ **No ejecutes este proyecto de forma global.** Aísla las dependencias en un `venv`.
+
+**Windows (Git Bash/CMD):**
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+**Mac/Linux:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3️⃣ Instalar dependencias
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4️⃣ Configurar Variables de Entorno
+
+Crea un archivo llamado `.env` en la **raíz del proyecto**:
+
+```
+ODDS_API_KEY=tu_clave_secreta_aqui
+```
+
+⚠️ **Nunca subas este archivo a GitHub.** Añádelo a `.gitignore`:
+
+```bash
+echo ".env" >> .gitignore
+```
+
+## 🔄 Ejecución: El Pipeline Diario (Operación)
+
+Para que el modelo funcione con precisión, **el pipeline debe ejecutarse el mismo día de los partidos**, idealmente **un par de horas antes del tip-off** (cuando las casas de apuestas ya publicaron sus líneas).
+
+### Ejecuta los comandos en este orden estricto:
+
+#### **Fase 1: Actualizar el contexto histórico (Mañana/Tarde)**
+
+```bash
+python src/data/etl_gamelogs.py
+python src/features/02_feature_engineering.py
+python src/features/03_context_features.py
+```
+
+#### **Fase 2: Conectar con el mercado e Inferencia (Antes del partido)**
+
+```bash
+python src/data/04_fetch_odds.py
+python src/models/06_inference.py
+```
+
+### 🤖 Automatización (Opcional)
+
+Crea un script para ejecutar todo automáticamente:
+
+**Windows (`run_pipeline.bat`):**
+
+```batch
+@echo off
+cd /d %~dp0
+call .venv\Scripts\activate
+python src/data/etl_gamelogs.py
+python src/features/02_feature_engineering.py
+python src/features/03_context_features.py
+python src/data/04_fetch_odds.py
+python src/models/06_inference.py
+pause
+```
+
+**Mac/Linux (`run_pipeline.sh`):**
+
+```bash
+#!/bin/bash
+cd "$(dirname "$0")"
+source .venv/bin/activate
+python src/data/etl_gamelogs.py
+python src/features/02_feature_engineering.py
+python src/features/03_context_features.py
+python src/data/04_fetch_odds.py
+python src/models/06_inference.py
+```
+
+## 📊 Resultados Esperados
+
+Al finalizar el script de inferencia, se generará un archivo en:
+
+```
+data/processed/nba_betting_picks.csv
+```
+
+### Contenido del archivo:
+
+- 🟢 **OVER ⬆️ (Valor Fuerte)** → Probabilidad de sobre estimada vs. las odds
+- 🔴 **UNDER ⬇️** → Probabilidad de bajo estimada vs. las odds
+- ⚪ **NO BET ⚠️** → Sin ventaja matemática clara
+
+### Columnas principales del CSV:
+
+```
+player_name | team | matchup | stat_line | model_projection |
+odds_line | sportsbook | edge_percentage | ev_value | recommendation
+```
+
+## 📁 Estructura del Proyecto
+
+```
+nba-ai-predictor/
 ├── src/
-│ ├── init.py
-│ │
-│ ├── data/
-│ │ ├── init.py
-│ │ ├── loader.py # Carga nba_master_dataset + nba_gamelogs
-│ │ └── merger.py # Une ADN + Línea de tiempo sin leakage
-│ │
-│ ├── features/
-│ │ ├── init.py
-│ │ ├── rolling_stats.py # Calcula rolling avg (últimos N juegos)
-│ │ ├── context_features.py # Opponent defense, home/away, rest_days
-│ │ └── feature_selection.py # Elimina features colineales
-│ │
-│ ├── models/
-│ │ ├── init.py
-│ │ ├── train.py # Entrena XGBoost con Time-Series Split
-│ │ ├── evaluate.py # Métricas (MAE, RMSE, R2, SHAP)
-│ │ └── inference.py # Predicción en batch
-│ │
-│ └── utils/
-│ ├── init.py
-│ ├── logger.py # Logging centralizado
-│ └── validators.py # Chequeos de leakage, nulls, etc.
-│
-├── notebooks/
-│ ├── 01_eda.ipynb # Exploración de datos
-│ ├── 02_feature_engineering.ipynb # Desarrollo de features
-│ ├── 03_model_training.ipynb # Ajuste de hiperparámetros
-│ └── 04_inference_demo.ipynb # Demo de predicciones
-│
+│   ├── data/
+│   │   ├── etl_gamelogs.py          # Extracción de datos
+│   │   └── 04_fetch_odds.py         # Conexión a The Odds API
+│   ├── features/
+│   │   ├── 02_feature_engineering.py # Promedios móviles, fatiga
+│   │   └── 03_context_features.py    # Factores contextuales
+│   └── models/
+│       └── 06_inference.py           # Predicción y cálculo de Edge
+├── data/
+│   ├── raw/                          # Datos sin procesar
+│   └── processed/                    # Output (nba_betting_picks.csv)
 ├── models/
-│ ├── xgboost_v1.pkl # Modelo entrenado serializado
-│ └── feature_scaler.pkl # StandardScaler (si aplica)
-│
-├── config/
-│ ├── constants.py # Constantes: SEASONS, FEATURES_TO_USE, etc.
-│ └── hyperparams.py # Hiperparámetros XGBoost
-│
-├── orchestration/
-│ ├── etl_historico.py # Sprint 1.1: Carga histórica (pbpstats API)
-│ ├── etl_gamelogs.py # Sprint 1.2: Game logs (nba_api)
-│ ├── 02_feature_engineering.py # Sprint 2: Feature eng
-│ ├── 03_train_model.py # Sprint 3: Entrenamiento
-│ └── 04_daily_inference.py # Sprint 4: Predicción diaria en producción
-│
-├── tests/
-│ ├── test_leakage.py # Valida cero data leakage
-│ ├── test_features.py # Chequea features no nulas
-│ └── test_model.py # Validación del modelo
-│
-├── requirements.txt
-├── README.md
-└── ROADMAP.md
+│   └── xgboost_model.pkl            # Modelo entrenado
+├── .env                              # Variables de entorno (no subir)
+├── .gitignore                        # Archivos a ignorar
+├── requirements.txt                  # Dependencias
+└── README.md                         # Este archivo
+```
 
-## 3. FASES DEL PROYECTO (SPRINT ROADMAP)
+## 🛠️ Stack Tecnológico
 
-### FASE 1: INGESTA DE DATOS ✅ COMPLETADA
+| Componente              | Herramientas                 |
+| ----------------------- | ---------------------------- |
+| **Data Pipeline**       | `nba_api`, `pandas`, `numpy` |
+| **Feature Engineering** | `pandas`, `scikit-learn`     |
+| **Modelado**            | `XGBoost`, `scikit-learn`    |
+| **APIs Externas**       | The Odds API                 |
+| **Environment**         | `python-dotenv`              |
 
-**Objetivo:** Descargar métricas reales (sin estimaciones) desde fuentes autoritativas.
+## 📝 Guía Rápida de Debugging
 
-**Sprint 1.1 - Carga Histórica (pbpstats API)**
-- ✅ Descargó `nba_master_dataset.csv` desde https://api.pbpstats.com/get-totals/nba
-- ✅ 3 temporadas: 2022-23, 2023-24, 2024-25
-- ✅ 251 columnas: Puntos, Posesiones (reales, no estimadas), Off_Rating, Usage, TS%, etc.
-- ✅ Arquitectura: 1 call HTTP por temporada (O(1) efficiency)
+### Error: `ODDS_API_KEY not found`
 
-**Sprint 1.2 - Game Logs (nba_api)**
-- ✅ Descargó `nba_gamelogs_dataset.csv` con LeagueGameLog endpoint
-- ✅ ~80,000 registros (partidos individuales)
-- ✅ Columnas: PLAYER_NAME, GAME_DATE, TEAM_ABBREVIATION, MIN, FGM, FGA, PTS, +/-, etc.
-- ✅ 3 llamadas API (O(1) efficiency)
+✅ Verifica que el archivo `.env` existe en la raíz y contiene la clave correcta.
 
-**Entregables:**
+### Error: `ModuleNotFoundError`
 
-data/processed/
-├── nba_master_dataset.csv (ADN del jugador: métricas resumen-carrera)
-└── nba_gamelogs_dataset.csv (Línea de tiempo: partido a partido)
+✅ Asegúrate de haber activado el `venv` e instalado `pip install -r requirements.txt`
 
-### FASE 2: FEATURE ENGINEERING (PRÓXIMO SPRINT)
+### El CSV está vacío
 
-**Objetivo:** Unir ADN + Línea de tiempo respetando causalidad temporal (CERO LEAKAGE).
+✅ Verifica que hay partidos de NBA programados para hoy en The Odds API.
 
-**Arquitectura de Unión (CRITICAL):**
-```python
-# CORRECTO (Causal, Sin Leakage):
-for game_date in sorted(unique_dates):
-    # Obtener histórico del jugador ANTES de game_date
-    history = gamelogs[gamelogs['GAME_DATE'] < game_date]
-    
-    # Calcular rolling average de ÚLTIMOS 5 JUEGOS
-    rolling_5 = history.tail(5)[['PTS', 'MIN', 'AST']].mean()
-    
-    # Target: Puntos en game_date
-    target = gamelogs[gamelogs['GAME_DATE'] == game_date]['PTS']
-    
-    # ✓ No hay fuga: usamos info previa para predecir línea de tiempo futura
+### Las odds no se cargan
 
-# INCORRECTO (Data Leakage):
-rolling_5 = gamelogs[gamelogs['season'] == '2023-24'][['PTS']].mean()
-# ✗ Usaste stats DE LA MISMA TEMPORADA para predecir esa temporada
+✅ Confirma que tu API Key es válida y tienes plan gratuito activado.
 
-Features a Calcular:
+# Cuy Apostador
 
-# .shift(1) = desplaza 1 fila hacia adelante = ve PASADO, no futuro
-rolling_pts_5 = df_gamelogs['PTS'].rolling(5).mean().shift(1)
-rolling_min_5 = df_gamelogs['MIN'].rolling(5).mean().shift(1)
-rolling_usage_5 = df_gamelogs['USAGE'].rolling(5).mean().shift(1)
-rolling_ts_pct_5 = df_gamelogs['TS_PCT'].rolling(5).mean().shift(1)
+Aplicación web educativa para analizar líneas de puntos de jugadores de la NBA a partir de predicciones previamente generadas. La interfaz permite seleccionar dos equipos, introducir la línea propuesta para cada jugador y obtener una recomendación `OVER`, `UNDER` o de riesgo.
 
-Contexto Pre-Juego:
+> Este proyecto es únicamente educativo y experimental. No constituye asesoría financiera ni garantiza resultados. Apuesta con responsabilidad.
 
-opponent = gamelogs['OPPONENT_TEAM']
-opponent_defense_rtg = merge_con(nba_master, opponent)  # Defensa del rival
-home_away = (gamelogs['GAME_LOCATION'] == '@').astype(int)  # 0=Local, 1=Visitante
-rest_days = (gamelogs['GAME_DATE'].diff()).dt.days  # Días desde último juego
-back_to_back = (rest_days == 1).astype(int)  # Flag para juegos consecutivos
+## Estado actual
 
-Trend Features:
+La versión actual es un frontend construido con React, TypeScript, Vite y Tailwind CSS.
 
-# ¿Jugador en racha o decayendo?
-pts_trend = (rolling_pts_5.iloc[-1] - rolling_pts_5.iloc[-3]) / rolling_pts_5.iloc[-3]
+- Las predicciones se cargan localmente desde `src/data/nba_predictions.json`.
+- El análisis se realiza en el navegador; no existe una API backend conectada a la interfaz.
+- La aplicación no consulta cuotas en vivo ni The Odds API.
+- La carpeta `backend/` contiene datasets y un notebook de apoyo para el trabajo de datos, pero no un servidor web.
+- La conexión con Supabase está declarada como dependencia, aunque actualmente no se utiliza en la interfaz.
 
-Output:
+## Funcionalidades
 
-data/processed/nba_features_ready.csv
-├─ player_id, game_date
-├─ rolling_pts_5, rolling_min_5, rolling_usage_5, rolling_ts_pct_5
-├─ opponent, opponent_def_rtg, home_away, rest_days, back_to_back
-├─ pts_trend, injury_status (si disponible)
-└─ TARGET: next_game_pts (puntos que anotará en el siguiente partido)
+1. Selección de un equipo local y un equipo visitante.
+2. Listado de los jugadores disponibles para cada equipo.
+3. Visualización de la predicción de puntos por jugador.
+4. Registro de una línea de puntos para los jugadores que se desean analizar.
+5. Clasificación de cada resultado:
 
-Mandamiento 
+- `OVER`: la línea está por debajo del piso estimado.
+- `UNDER`: la línea está por encima del techo estimado.
+- `OVER (Riesgo)` o `UNDER (Riesgo)`: la línea se encuentra dentro del rango de incertidumbre.
 
-PROHIBIDO: df['rolling_avg'] = df['PTS'].rolling(5).mean()
-         ↓ 
-         Ves el futuro (leakage)
+6. Ordenamiento de los resultados, mostrando primero los análisis clasificados como `SAFE`.
+7. Reinicio de la selección para realizar otro análisis.
 
-OBLIGATORIO: df['rolling_avg'] = df['PTS'].rolling(5).mean().shift(1)
-            ↓
-            Ves solo el pasado (correcto)
+## Cómo funciona el análisis
 
-FASE 3: MODELADO Y VALIDACIÓN
-Objetivo: Entrenar modelo con Time-Series Split (validación temporal honesta).
+Cada registro de predicción contiene:
 
-Split Strategy (PROHIBITION: random split):
+| Campo      | Descripción                       |
+| ---------- | --------------------------------- |
+| `player`   | Nombre del jugador                |
+| `team`     | Código del equipo                 |
+| `points`   | Puntos proyectados por el sistema |
+| `floor`    | Piso estimado                     |
+| `ceiling`  | Techo estimado                    |
+| `real_pts` | Referencia de puntos reales       |
 
-Timeline: 2022-2025 -------------------- Últimos 30 días 2026
-          ↓                              ↓
-         TRAIN                          TEST
-         (3+ años de historia)    (validación futura)
+Para una línea introducida por el usuario:
 
-Incorrecta (RECHAZADA):
-train_set, test_set = train_test_split(df, test_size=0.2, random_state=42)
-                      ↓
-                      Mezcla pasado/futuro = predicción falsa
+- Si `línea < floor`, se recomienda `OVER` y se marca como `SAFE`.
+- Si `línea > ceiling`, se recomienda `UNDER` y se marca como `SAFE`.
+- En cualquier otro caso, se compara la línea con `points` y se marca como `RISKY`.
 
-ROADMAP DE EJECUCIÓN
+Esta lógica está implementada en `src/components/NbaPredictor.tsx`.
 
-SEMANA 1:
-  ├─ Sprint 1.1 ✅ (Historico)
-  └─ Sprint 1.2 ✅ (Gamelogs)
+## Requisitos
 
-SEMANA 2:
-  ├─ Sprint 2.1 (Feature Engineering: Rolling Avgs)
-  ├─ Sprint 2.2 (Context Features: Opponent, Home/Away)
-  └─ Sprint 2.3 (Validación de Leakage: test_leakage.py)
+- Node.js 18 o una versión posterior.
+- npm.
+- Python 3.10 o posterior únicamente si se desean ejecutar los scripts ETL.
 
-SEMANA 3:
-  ├─ Sprint 3.1 (Entrenamiento: XGBoost con Time-Series Split)
-  ├─ Sprint 3.2 (Evaluación: SHAP, Feature Importance)
-  └─ Sprint 3.3 (Tuning de Hiperparámetros)
+## Instalación y ejecución de la aplicación
 
-SEMANA 4:
-  ├─ Sprint 4.1 (Daily Inference Pipeline)
-  ├─ Sprint 4.2 (API REST para web frontend)
-  └─ Sprint 4.3 (Deployment + Monitoreo)
+Desde la raíz del proyecto:
 
-PRODUCCIÓN:
-  └─ Predicciones diarias: nba_predictions.json
+```bash
+npm install
+npm run dev
+```
 
+Vite mostrará en la terminal la URL local de la aplicación, normalmente `http://localhost:5173`.
 
-8. REFERENCIAS TÉCNICAS
+Para crear una versión de producción:
 
-Librerías Core:
+```bash
+npm run build
+npm run preview
+```
 
-pandas: Manipulación de datos
-xgboost: Modelo predictivo
-nba_api: Descarga de stats en directo
-scikit-learn: Métricas, procesamiento
-shap: Feature importance, explicabilidad
-Fuentes de Datos:
+## Comandos disponibles
 
-pbpstats API: https://api.pbpstats.com/get-totals/nba (métricas reales)
-nba_api: Endpoints de NBA oficial (game logs)
+| Comando             | Uso                                             |
+| ------------------- | ----------------------------------------------- |
+| `npm run dev`       | Inicia el servidor de desarrollo de Vite        |
+| `npm run build`     | Comprueba tipos y genera el build de producción |
+| `npm run typecheck` | Ejecuta TypeScript sin emitir archivos          |
+| `npm run lint`      | Ejecuta ESLint                                  |
+| `npm run preview`   | Sirve localmente el build generado              |
+
+## Preparación de datos con Python
+
+Los scripts de la raíz descargan y consolidan datos históricos en `data/processed/`:
+
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# Instalar las dependencias usadas por los scripts ETL
+pip install pandas requests nba_api
+```
+
+### Game logs de la NBA
+
+```bash
+python etl_gamelogs.py
+```
+
+Consulta `nba_api` para las temporadas configuradas en el script y genera:
+
+```text
+data/processed/nba_gamelogs_dataset.csv
+```
+
+### Datos históricos de PBP Stats
+
+```bash
+python etl_historico.py
+```
+
+Consulta la API pública de PBP Stats y genera:
+
+```text
+data/processed/nba_master_dataset.csv
+```
+
+Los scripts incluyen pausas entre peticiones para reducir la carga sobre las APIs. Las temporadas procesadas están definidas directamente en cada archivo.
+
+## Estructura del proyecto
+
+```text
+project/
+├── backend/
+│   ├── nba_datos_limpios.csv
+│   ├── nba_predictions.json
+│   └── ProyectoIA.ipynb
+├── data/
+│   └── processed/
+│       ├── nba_features_elite.csv
+│       ├── nba_gamelogs_dataset.csv
+│       └── nba_master_dataset.csv
+├── src/
+│   ├── components/
+│   │   └── NbaPredictor.tsx
+│   ├── data/
+│   │   ├── mockPredictions.ts
+│   │   └── nba_predictions.json
+│   ├── features/
+│   │   └── 02_feature_engineering.py
+│   ├── types/
+│   │   └── predictions.ts
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+├── etl_gamelogs.py
+├── etl_historico.py
+├── package.json
+├── tailwind.config.js
+└── vite.config.ts
+```
+
+## Tecnologías
+
+- **Frontend:** React 18, TypeScript y Vite.
+- **Estilos:** Tailwind CSS y PostCSS.
+- **Iconos:** `lucide-react`.
+- **Datos y ETL:** Python, pandas, requests y `nba_api`.
+- **Fuentes de datos:** NBA API y PBP Stats para la preparación de datasets.
+
+## Limitaciones conocidas
+
+- Las predicciones mostradas dependen del archivo JSON incluido en el repositorio.
+- No se actualizan automáticamente los partidos, jugadores, lesiones ni cuotas.
+- No se calculan probabilidades implícitas, valor esperado ni gestión real de stake.
+- La recomendación debe interpretarse como una clasificación experimental, no como una apuesta garantizada.
+
+## Próximos pasos posibles
+
+- Conectar la interfaz con un backend o servicio de predicción.
+- Automatizar la generación de `nba_predictions.json` a partir de los datasets procesados.
+- Incorporar cuotas reales, probabilidades, valor esperado y validación histórica.
+- Añadir pruebas automatizadas para la lógica de clasificación.

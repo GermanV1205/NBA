@@ -3,7 +3,7 @@ ETL HISTÓRICO NBA - API PBPSTATS
 Descarga datos de 3 temporadas desde https://api.pbpstats.com/get-totals/nba
 Output: data/processed/nba_master_dataset.csv
 """
-
+import time
 import requests
 import pandas as pd
 from pathlib import Path
@@ -71,6 +71,8 @@ def main():
         df = fetch_season_data(season)
         if df is not None:
             all_seasons.append(df)
+            logger.info("⏳ Esperando 10 segundos para no saturar el servidor...")
+            time.sleep(10)
     
     if not all_seasons:
         logger.error("✗ No se descargó ningún dato. Abortando.")
